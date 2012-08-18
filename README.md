@@ -1,4 +1,0 @@
-mocambos-arquitetura
-====================
-
-Arquiteturas
