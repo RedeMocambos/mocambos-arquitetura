@@ -1,0 +1,84 @@
+Estou procurando um jeito de armazenar as imagens das noticias do
+portal Plone no novo portal. Precisa achar um jeito de coletar todos
+os links e salvar as imagens localmente. Talvez posso extender o
+ZinniaEntry para incluir um campo imagem. Assim consigo relacionar o
+link ao objeto e criar a partir de template, com algo do tipo:
+
+<code>
+	<div id="content">
+	     <img src="{Entry.image}" alt="{Entry.title}"/>
+	     </div>
+</code>
+
+Para extender o Entry precisa criar um modelo abstrato que herde do
+EntryBaseModel, adicionando os campos e sobrescrevendo as
+funções/metodos[\ref{ExtZinniaEntry}]. 
+
+Voltando ao script de importação \emph{feed2zinnia}, por enquanto ficou:
+
+<code>
+	for feed_entry in feed_entries:
+	    soup = BeautifulSoup(feed_entry.description)
+            #print feed_entry.description                                                                                                                  
+            #result = soup.find("img")["src"]
+	    # AQUI PRECISA PEGAR OS LINKS DAS IMAGENS E COLAR NOS OBJETOS. Criar um atributo de tipo lista no entry.                                                                                                               
+            print([x['src'] for x in soup.findAll('img', {'class': 'image-inline'})])
+                #if result is not None:                                                                                                                                       #    print result                                                                                                                                             #self.write_out(self.style.NOTICE(soup.find("img")["src"]))               
+</code>
+
+Agora precisa pegar os links das images e colocar numa lista associada
+ao objeto. Para isso criamos o atributo Entry.images[].
+
+O codigo poderia ser entao:
+<code>
+
+	Entry.images = [x['src'] for x in soup.findAll('img', {'class': 'image-inline'})]
+
+</code>
+
+
+
+
+############################################################################
+
+\chapter{ExtZinniaEntry}\label{ExtZinniaEntry}
+In fact, simply by creating an abstract model inherited from
+EntryBaseModel, adding fields or/and overriding his methods, and
+registering it with the ZINNIA_ENTRY_BASE_MODEL setting in your
+project.
+
+Example for adding a gallery field.
+
+from django.db import models
+from mygalleryapp.models import Gallery
+from zinnia.models import EntryAbstractClass
+
+class EntryGallery(EntryAbstractClass):
+  gallery = models.ForeignKey(Gallery)
+
+  class Meta:
+    abstract = True
+
+Now you register the EntryGallery model like this in your project’s settings.
+
+ZINNIA_ENTRY_BASE_MODEL = 'appname.custom_entry.EntryGallery'
+
+Finally extend the entry’s admin class to show your custom field.
+
+from django.contrib import admin
+from zinnia.models import Entry
+from zinnia.admin.entry import EntryAdmin
+from django.utils.translation import ugettext_lazy as _
+
+class EntryGalleryAdmin(EntryAdmin):
+
+  # In our case we put the gallery field
+  # into the 'Content' fieldset
+  fieldsets = ((_('Content'), {'fields': (
+    'title', 'content', 'image', 'status', 'gallery')})) + \
+    EntryAdmin.fieldsets[1:]
+
+admin.site.unregister(Entry)
+admin.site.register(Entry, EntryGalleryAdmin)
+
+You can see another example in the files zinnia/plugins/placeholder.py and zinnia/plugins/admin.py.
