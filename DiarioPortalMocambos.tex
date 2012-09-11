@@ -1,47 +1,156 @@
-Estou procurando um jeito de armazenar as imagens das noticias do
-portal Plone no novo portal. Precisa achar um jeito de coletar todos
-os links e salvar as imagens localmente. Talvez posso extender o
-ZinniaEntry para incluir um campo imagem. Assim consigo relacionar o
-link ao objeto e criar a partir de template, com algo do tipo:
+\section{Django}\label{django}
+Django é um framework, escrito em Python, para o desenvolvimento
+rápido de aplicações web, também conhecido como ``\emph{The web
+  framework for perfectionists with deadlines}''\footnote{``O
+  framework web para perfeccionistas com prazos''.}, pois foi criado
+com o objetivo de respeitar o máximo possível os princípios
+DRY\footnote{``Don't Repeat Yourself, não se repita, (DRY, também
+  conhecido como ``Single Point of Truth'', ponto único de verdade) é
+  um principio segundo o qual a informação não tem que ser repetida e
+  redundante e não tem que expressar o mesmo conceito mais de uma
+  vez.'', traduzido do Wikipedia:
+  \url{http://it.wikipedia.org/wiki/Don\%27t_Repeat_Yourself}.}, e
+então oferece todas as ferramentas para escrever código limpo de
+maneira pragmática e eficaz.
 
-<code>
+As caraterísticas do Django são:
+\begin{itemize}
+\item é um framework \emph{Model, View, Template}, (MVT),
+  correspondente ao difundido \emph{pattern Model, View, Controller},
+  (MVC). O \emph{Template} do Django corresponde ao \emph{view} de
+  qualquer framework MVC, enquanto a \emph{View} corresponde ao
+  \emph{controller} (mesmo se as funcionalidades do \emph{controller},
+  no caso do Django, não são limitadas a componente \emph{View}).
+\item permite modelar os dados diretamente em python e o
+  \emph{Object Relational Mapper} (ORM), se ocupa de transformá-los em
+  código SQL. Também não precisa escrever \emph{query} diretamente em
+  SQL; é só usar o ORM para obter os resultados diretamente sob forma
+  de objetos python. O ORM de Django suporta PostgreSQL, MySQL, sqlite,
+  Microsoft SQL Server e Oracle.
+\item possui uma biblioteca para \emph{form} realmente poderosa e
+  expressiva que permite realizar logicas complexas com poucas linhas
+  de código, deixando o máximo controle ao desenvolvedor para todas as
+  situações.
+\item é um framework ``\emph{batteries included}'', ou seja já vêm com
+  algumas aplicações, chamadas \emph{apps}, para as funcionalidade
+  mais comuns, que reduzem o tempo de desenvolvimento, por exemplo um
+  sistema de autenticação, uma interface de administração, um
+  framework para gerar \emph{sitemaps XML} e muito mais. Além disso a
+  comunidade é bem ativa e existem muitas \emph{apps} adaptáveis e
+  reusáveis.
+\item é entre os melhores framework quanto a documentação
+  oficial. Além de alguns tutoriais, uteis para aprender as bases,
+  todas as funcionalidades e características do framework são bem
+  documentadas.
+\end{itemize}
+
+\section{Django-CMS}\label{django-cms}
+Django CMS adiciona uma serie de funcionalidades já prontas ao
+framework Django. Possibilita criar paginas em blocos. Em cada bloco
+podem se colocar conteúdos através dos plugins. Por padrão existem já
+varios plugins para gerir imagens, arquivos, vídeos, etc\ldots. Alem
+disso existem muitos plugins desenvolvidos pela comunidade e criar
+novos é relativamente simples.
+
+\section{Zinnia}\label{zinnia}
+O Zinnia é uma aplicação para criar blog no django e se integra bem ao
+django-cms, providenciando já alguna plugins para inserir nas páginas
+do django-cms conteúdos do blog zinnia.  Um artigo/post no blog é
+representado pelo modelo/classe ZinniaEntry que tem a seguinte
+estrutura\footnote{É possível visualizar a estrutura das
+  classes/modelos do django com o comando $python manage.py
+  inspectdb$}:
+
+\begin{code}
+class ZinniaEntry(models.Model):
+    id = models.IntegerField(primary_key=True)
+    title = models.CharField(max_length=255)
+    image = models.CharField(max_length=100)
+    content = models.TextField()
+    excerpt = models.TextField()
+    tags = models.CharField(max_length=255)
+    slug = models.CharField(max_length=255)
+    status = models.IntegerField()
+    featured = models.BooleanField()
+    comment_enabled = models.BooleanField()
+    pingback_enabled = models.BooleanField()
+    creation_date = models.DateTimeField()
+    last_update = models.DateTimeField()
+    start_publication = models.DateTimeField(null=True, blank=True)
+    end_publication = models.DateTimeField(null=True, blank=True)
+    login_required = models.BooleanField()
+    password = models.CharField(max_length=50)
+    template = models.CharField(max_length=250)
+    class Meta:
+        db_table = u'zinnia_entry'
+\end{code}
+
+
+\subsection{Importando as notícias do velho portal}
+O Zinnia inclui um script para importar conteúdos a partir de um
+RSS. O script usa a ótima biblioteca python
+\emph{feedparser}\footnote{\url{http://packages.python.org/feedparser/}}.
+Vamos alterar esse script para conseguir armazenar as imagens das
+noticias do portal Plone no novo portal. Precisa achar um jeito de
+analizar o conteúdo das notícias, coletar todos os links as imagens
+para em seguida salva-las no novo portal e atualizar os links. É
+possível extender o \emph{ZinniaEntry} para incluir um campo imagem
+(na real uma lista de imagens). Por fim alterar também o template do
+ZinniaEntry para visualizar as imagens associadas ao objeto, por
+exemplo:
+
+\begin{code}
+        
 	<div id="content">
-	     <img src="{Entry.image}" alt="{Entry.title}"/>
-	     </div>
-</code>
+        {% for image in Entry.image_list %}
+             <img src="{{ image }}" alt="{{ Entry.title }}"/>
+        {% endfor %}
+        </div>
+        
+\end{code}
 
 Para extender o Entry precisa criar um modelo abstrato que herde do
-EntryBaseModel, adicionando os campos e sobrescrevendo as
+EntryBaseModel. Desta forma é possivel adicionar campos/atributos e sobrescrever as
 funções/metodos[\ref{ExtZinniaEntry}]. 
 
-Voltando ao script de importação \emph{feed2zinnia}, por enquanto ficou:
+Nesse momento precisa so criar mais um atributo para armazenar uma
+lista de imagens. Poderia ser uma lista de objetos imagens ou
+simplesmente uma lista de link. No caso vamos criar so uma lista de
+links/url.
 
-<code>
-	for feed_entry in feed_entries:
-	    soup = BeautifulSoup(feed_entry.description)
-            #print feed_entry.description                                                                                                                  
-            #result = soup.find("img")["src"]
-	    # AQUI PRECISA PEGAR OS LINKS DAS IMAGENS E COLAR NOS OBJETOS. Criar um atributo de tipo lista no entry.                                                                                                               
-            print([x['src'] for x in soup.findAll('img', {'class': 'image-inline'})])
-                #if result is not None:                                                                                                                                       #    print result                                                                                                                                             #self.write_out(self.style.NOTICE(soup.find("img")["src"]))               
-</code>
+Voltando ao script de importação \emph{feed2zinnia}. Vamos criar uma
+função para procurar os links das imagens dentro da descrição/conteúdo
+do feed:
 
-Agora precisa pegar os links das images e colocar numa lista associada
-ao objeto. Para isso criamos o atributo Entry.images[].
+\begin{code}
+def import_images(self, feed_entry):
+    soup = BeautifulSoup(feed_entry.description)
+    return [x['src'] for x in soup.findAll('img', {'class': 'image-inline'})]
+\end{code}
 
-O codigo poderia ser entao:
-<code>
+Agora precisa pegar esses links as imagens e inserir no novo atributo
+Entry.images_list[].
 
-	Entry.images = [x['src'] for x in soup.findAll('img', {'class': 'image-inline'})]
+Vamos alterar então a função \emph{import_entries} dessa maneira:
 
-</code>
+\begin{code}
+categories = self.import_categories(feed_entry)
+            images_links = self.import_images(feed_entry)
+            entry_dict = {'title': feed_entry.title[:255],
+                          'content': feed_entry.description,
+                          'excerpt': feed_entry.get('summary'),
+                          'status': PUBLISHED,
+                          'creation_date': creation_date,
+                          'start_publication': creation_date,
+                          'last_update': timezone.now(),
+                          'slug': slug,
+                          'images_links': images_links}
+\end{code}
 
 
-
-
-############################################################################
-
-\chapter{ExtZinniaEntry}\label{ExtZinniaEntry}
+\chapter{Anexos}
+\section{Extendendo o modelo do artigo do blog do Zinnia}\label{ExtZinniaEntry}
+% Vince_TODO: Traduzir
 In fact, simply by creating an abstract model inherited from
 EntryBaseModel, adding fields or/and overriding his methods, and
 registering it with the ZINNIA_ENTRY_BASE_MODEL setting in your
@@ -49,6 +158,7 @@ project.
 
 Example for adding a gallery field.
 
+\begin{code}
 from django.db import models
 from mygalleryapp.models import Gallery
 from zinnia.models import EntryAbstractClass
@@ -58,13 +168,15 @@ class EntryGallery(EntryAbstractClass):
 
   class Meta:
     abstract = True
+\end{code}
 
 Now you register the EntryGallery model like this in your project’s settings.
 
-ZINNIA_ENTRY_BASE_MODEL = 'appname.custom_entry.EntryGallery'
+$$ ZINNIA_ENTRY_BASE_MODEL = 'appname.custom_entry.EntryGallery' $$
 
 Finally extend the entry’s admin class to show your custom field.
 
+\begin{code}
 from django.contrib import admin
 from zinnia.models import Entry
 from zinnia.admin.entry import EntryAdmin
@@ -80,5 +192,6 @@ class EntryGalleryAdmin(EntryAdmin):
 
 admin.site.unregister(Entry)
 admin.site.register(Entry, EntryGalleryAdmin)
+\end{code}
 
 You can see another example in the files zinnia/plugins/placeholder.py and zinnia/plugins/admin.py.
