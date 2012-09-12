@@ -147,6 +147,66 @@ categories = self.import_categories(feed_entry)
                           'images_links': images_links}
 \end{code}
 
+\section{Alterar o artigo para incluir as imagens}
+O Zinnia tem uma boa documentação para extender a classe que define o
+artigo\ref{ExtZinniaEntry}. Precisa criar uma nova aplicação para
+django, ou seja criar uma pasta e criar um arquivo vazio $$
+__init__.py $$. Vamos criar um objeto para representar as imagens que
+precisa anexar aos artigos. Para isso criamos um arquivo $$
+models.py $$:
+
+\begin{code}
+from django.db import models
+from zinnia.models import EntryAbstractClass, Entry
+
+class EntryMocambosImage(models.Model):
+    image = models.ImageField(upload_to='zinnia_images')
+    entry = models.ForeignKey(Entry, related_name='%(class)s_images')
+\end{code}
+
+Depois criamos o nosso novo modelo que nesse momento nao contem quase
+nada, chamado, por exemplo, modelos.py, desta forma:
+
+\begin{code}
+from django.db import models
+from zinnia.models import EntryAbstractClass
+
+class EntryMocambos(EntryAbstractClass):
+
+    class Meta:
+    abstract = True
+\end{code}
+
+Precisa registrar as alterações no sistema de administração:
+
+\begin{code}
+from django.contrib import admin
+from zinnia.models import Entry
+from zinnia.admin.entry import EntryAdmin
+from mocamboszinnia.models import EntryMocambosImage
+from django.utils.translation import ugettext_lazy as _
+from django.db.models.loading import cache as model_cache
+if not model_cache.loaded:
+    model_cache.get_models()
+
+
+class EntryMocambosImageInline(admin.TabularInline):
+    model = EntryMocambosImage
+    extra = 3
+
+class EntryMocambosAdmin(EntryAdmin):
+    inlines = [ EntryMocambosImageInline, ]
+    # In our case we put the gallery field                                                                                                                     
+    # into the 'Content' fieldset                                                                                                                              
+    fieldsets = ((_('Content'), {'fields': (
+                    'title', 'content', 'image', 'status')}), ) + \
+                    EntryAdmin.fieldsets[1:]
+
+
+admin.site.unregister(Entry)
+admin.site.register(Entry, EntryMocambosAdmin)
+\end{code}
+
 
 \chapter{Anexos}
 \section{Extendendo o modelo do artigo do blog do Zinnia}\label{ExtZinniaEntry}
